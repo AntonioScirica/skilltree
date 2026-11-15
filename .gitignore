@@ -1,0 +1,16 @@
+# Your real projects contain your clients' contracts, prices and deadlines.
+# They are ignored by default so they cannot be published by mistake. Only the invented example is tracked.
+# To version your own projects, use a PRIVATE repository and remove the next two lines.
+/projects/*
+!/projects/example/
+
+# Progress of the example is yours, not part of the repo.
+/projects/example/state.json
+
+.env
+.env.*
+.DS_Store
+node_modules/
+
+# Launch video working files (frames, scripts, node_modules). The finished video lives in docs/.
+/brag-output/

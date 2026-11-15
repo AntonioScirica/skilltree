@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Skilltree</title>
+<style>
+  :root { --bg:#09090a; --card:#141415; --card2:#1b1b1d; --line:#2b2b2e; --txt:#ededed; --mute:#85858b; --or:#ff8a3d; --or2:#ffb37a; --red:#ff6161; --ok:#5fd08a; }
+  * { box-sizing:border-box; }
+  html, body { height:100%; margin:0; overflow:hidden; }
+  body { background:var(--bg); color:var(--txt); font:14px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif; }
+  button { font:inherit; color:inherit; background:none; border:0; cursor:pointer; padding:0; }
+  input[type=checkbox] { appearance:none; -webkit-appearance:none; margin:1px 0 0; flex:none; width:17px; height:17px; border-radius:50%; cursor:pointer;
+    border:2px solid #4a4a4f; background:transparent; display:grid; place-items:center; transition:.2s; }
+  input[type=checkbox]:hover { border-color:var(--or2); }
+  input[type=checkbox]:checked { background:var(--or); border-color:var(--or); box-shadow:0 0 10px var(--or); }
+  input[type=checkbox]:checked::after { content:""; width:4px; height:8px; margin-top:-2px; border:solid #1a0d02; border-width:0 2px 2px 0; transform:rotate(45deg); }
+  input[type=checkbox]:focus-visible { outline:2px solid var(--or2); outline-offset:2px; }
+
+  /* ---------- muro ---------- */
+  #vp { position:fixed; inset:0; cursor:grab; touch-action:none; background-image:radial-gradient(#232326 1px,transparent 1px); }
+  #vp.drag { cursor:grabbing; }
+  #world { position:absolute; left:0; top:0; transform-origin:0 0; will-change:transform; }
+  #world.fly { transition:transform .7s cubic-bezier(.2,.8,.2,1); }
+  #edges { position:absolute; left:0; top:0; width:1px; height:1px; overflow:visible; }
+  #edges line { stroke:var(--line); stroke-width:2; transition:stroke .5s; }
+  #edges line.lit { stroke:var(--or); stroke-width:2.5; }
+
+  .t, .f, .hub { position:absolute; display:flex; align-items:center; white-space:nowrap; user-select:none; }
+  .t { height:18px; margin:-9px 0 0 -9px; gap:10px; cursor:pointer; color:var(--mute); font-size:12.5px; }
+  .t i { width:18px; height:18px; border-radius:50%; border:2px solid #4a4a4f; background:var(--bg); transition:.3s; flex:none; }
+  .t:hover { color:var(--txt); } .t:hover i { border-color:var(--or2); }
+  .t.done { color:var(--or2); }
+  .t.done i { background:var(--or); border-color:var(--or); box-shadow:0 0 12px 1px var(--or); }
+  .t.pop i { animation:pop .6s ease-out; }
+  @keyframes pop { 0% { transform:scale(.6); box-shadow:0 0 0 0 var(--or); } 40% { transform:scale(1.7); box-shadow:0 0 40px 12px var(--or); } 100% { transform:scale(1); } }
+  .t span, .f span { overflow:hidden; text-overflow:ellipsis; }
+  .t span { max-width:330px; } .f span { max-width:300px; }
+  #world.far .t span { display:none; }
+
+  .f { height:46px; margin:-23px 0 0 -23px; gap:12px; cursor:pointer; font-size:15px; font-weight:600; }
+  .f i { width:46px; height:46px; border-radius:50%; border:2px solid #4a4a4f; background:var(--card); display:grid; place-items:center; font:600 11px/1 inherit; font-style:normal; color:var(--mute); transition:.4s; flex:none; }
+  .f u { text-decoration:none; }
+  .up { display:block; text-align:left; margin:-4px 0 0 28px; font-size:12.5px; color:var(--or2); } .up:hover { text-decoration:underline; }
+  .upn { margin:-4px 0 0 28px; padding-left:9px; border-left:2px solid var(--line); font-size:12.5px; color:#cfcfd2; white-space:pre-wrap; overflow-wrap:anywhere; }
+  .bb { display:flex; gap:14px; margin-top:8px; font-size:12.5px; } .bb a, .bb button { color:var(--mute); text-decoration:none; } .bb a:hover, .bb button:hover { color:var(--or2); }
+  code { font:600 11px/1 ui-monospace,SFMono-Regular,Menlo,monospace; color:var(--or2); background:rgba(255,138,61,.12); border-radius:5px; padding:2px 5px; margin-right:7px; vertical-align:1px; }
+  #brand select { background:none; color:var(--mute); border:0; font:inherit; margin-left:8px; cursor:pointer; } #brand select option { color:#000; }
+  .f.gate i { border-radius:9px; transform:rotate(45deg) scale(.86); } .f.gate u { transform:rotate(-45deg); }
+  .f.on i { border-color:var(--or); color:var(--or2); }
+  .f.done i { background:var(--or); border-color:var(--or); color:#1a0d02; box-shadow:0 0 26px 2px var(--or); }
+  .f.rel span::after { content:" ↑"; color:var(--ok); }
+  .f.sel i { outline:2px solid var(--txt); outline-offset:4px; }
+  .f:hover i { border-color:var(--or2); }
+
+  .hub { width:96px; height:96px; margin:-48px 0 0 -48px; border-radius:50%; justify-content:center; cursor:pointer;
+    background:radial-gradient(var(--card) 60%,transparent 61%), conic-gradient(var(--or) var(--p,0%), var(--line) 0); transition:box-shadow .5s; }
+  .hub b { font-size:19px; font-weight:600; color:var(--mute); }
+  .hub.on b { color:var(--or2); }
+  .hub.done { box-shadow:0 0 50px 4px rgba(255,138,61,.7); } .hub.done b { color:var(--or); }
+  .hub.now { box-shadow:0 0 0 6px rgba(255,138,61,.18), 0 0 60px rgba(255,138,61,.35); }
+  .hl { position:absolute; top:112px; left:50%; transform:translateX(-50%); width:230px; text-align:center; white-space:normal; }
+  .hl em { display:block; font-style:normal; font-size:11px; letter-spacing:.09em; text-transform:uppercase; color:var(--or); font-weight:600; }
+  .hl strong { display:block; font-size:19px; font-weight:500; line-height:1.2; margin-top:4px; }
+
+  /* ---------- cornice ---------- */
+  .glass { background:rgba(20,20,21,.86); backdrop-filter:blur(14px); border:1px solid var(--line); border-radius:16px; }
+  #brand { position:fixed; left:16px; top:16px; padding:12px 16px; }
+  #brand b { display:block; font-size:15px; } #brand small { color:var(--mute); }
+  #zoom { position:fixed; left:16px; bottom:16px; display:flex; flex-direction:column; overflow:hidden; }
+  #zoom button { width:38px; height:36px; font-size:17px; color:var(--mute); } #zoom button:hover { background:var(--card2); color:var(--txt); }
+  #nav { position:fixed; left:70px; right:420px; bottom:16px; display:flex; gap:6px; padding:6px; overflow-x:auto; scrollbar-width:none; }
+  #nav button { flex:1 0 auto; min-width:92px; padding:7px 10px 9px; border-radius:10px; text-align:left; font-size:12px; color:var(--mute); position:relative; overflow:hidden; }
+  #nav button:hover { background:var(--card2); color:var(--txt); }
+  #nav button.now { color:var(--txt); background:var(--card2); }
+  #nav button b { display:block; font-weight:600; font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--or); }
+  #nav button i { position:absolute; left:0; bottom:0; height:3px; background:var(--or); box-shadow:0 0 8px var(--or); transition:width .4s; }
+
+  /* ---------- pannello ---------- */
+  #side { position:fixed; right:16px; top:16px; bottom:16px; width:388px; display:flex; flex-direction:column; overflow:hidden; }
+  .top { padding:18px 18px 14px; display:flex; gap:16px; align-items:center; border-bottom:1px solid var(--line); }
+  .ring { width:64px; height:64px; border-radius:50%; flex:none; display:grid; place-items:center; font-weight:600; font-size:15px; color:var(--or2);
+    background:radial-gradient(var(--card) 62%,transparent 63%), conic-gradient(var(--or) var(--p), var(--line) 0); }
+  .top .info { flex:1; min-width:0; }
+  .top .wk { display:flex; align-items:center; gap:8px; font-size:17px; font-weight:600; }
+  .top .wk button { width:24px; height:24px; border-radius:7px; border:1px solid var(--line); color:var(--mute); line-height:1; } .top .wk button:hover { color:var(--txt); border-color:var(--mute); }
+  .top .stats { color:var(--mute); font-size:12.5px; margin-top:4px; } .top .stats b { color:var(--txt); font-weight:600; }
+  .tabs { display:flex; gap:4px; padding:10px 12px 0; }
+  .tabs button { flex:1; padding:8px 0; border-radius:9px; font-size:13px; font-weight:500; color:var(--mute); }
+  .tabs button.on { background:var(--card2); color:var(--txt); }
+  .tabs button sup { margin-left:5px; font-size:10.5px; padding:1px 6px; border-radius:8px; background:var(--line); color:var(--txt); vertical-align:middle; }
+  .tabs button sup.hot { background:var(--red); color:#200; }
+  .body { flex:1; overflow-y:auto; padding:12px; display:flex; flex-direction:column; gap:10px; scrollbar-width:thin; scrollbar-color:var(--line) transparent; }
+  .foot { padding:8px 16px; border-top:1px solid var(--line); display:flex; gap:14px; font-size:12px; color:var(--mute); }
+  .foot button:hover { color:var(--txt); }
+  .empty { color:var(--mute); text-align:center; padding:30px 10px; }
+  .grp { font-size:11px; letter-spacing:.09em; text-transform:uppercase; color:var(--mute); font-weight:600; margin:8px 4px 0; }
+
+  .card { background:var(--card2); border:1px solid var(--line); border-radius:13px; padding:12px 13px; }
+  .card.late { border-color:rgba(255,97,97,.5); }
+  .card.selc { border-color:var(--or); box-shadow:0 0 30px -10px var(--or); }
+  .card header { display:flex; align-items:center; gap:8px; }
+  .card header button.ttl { flex:1; text-align:left; font-weight:600; font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .card header button.ttl:hover { color:var(--or2); }
+  .card header small { color:var(--mute); font-variant-numeric:tabular-nums; }
+  .card header .x { color:var(--mute); font-size:18px; line-height:1; }
+  .card .meta { color:var(--mute); font-size:12px; margin-top:3px; }
+  .card .note { border-left:2px solid var(--or); padding-left:9px; color:var(--or2); font-size:12.5px; margin-top:9px; }
+  .mini { height:3px; border-radius:2px; background:var(--line); margin:9px 0 6px; overflow:hidden; } .mini i { display:block; height:100%; background:var(--or); transition:width .4s; }
+  .row { display:flex; gap:9px; padding:5px 0; font-size:13px; cursor:pointer; color:#cfcfd2; }
+  .row:hover { color:var(--txt); }
+  .row.d { color:var(--mute); text-decoration:line-through; }
+  .row.rel { color:var(--ok); margin-top:6px; padding-top:9px; border-top:1px solid var(--line); }
+  .more { color:var(--mute); font-size:12px; padding:3px 0 0 24px; }
+  .chip { font-size:10.5px; font-weight:600; padding:2px 7px; border-radius:7px; background:var(--line); color:var(--mute); white-space:nowrap; }
+  .chip.late { background:rgba(255,97,97,.16); color:var(--red); } .chip.due { background:rgba(255,138,61,.16); color:var(--or2); }
+  .ask { display:flex; gap:10px; align-items:flex-start; cursor:pointer; }
+  .dir { flex:none; width:20px; height:20px; border-radius:6px; display:grid; place-items:center; font-size:12px; background:rgba(95,208,138,.14); color:var(--ok); }
+  .dir.out { background:rgba(255,138,61,.16); color:var(--or2); }
+  .ask span { flex:1; font-size:13px; } .ask.got span { color:var(--mute); text-decoration:line-through; }
+  .rit { display:flex; gap:12px; } .rit b { flex:none; width:104px; color:var(--or2); font-size:12px; font-weight:600; } .rit span { font-size:13px; color:#cfcfd2; }
+</style>
+
+<div id="vp"><div id="world"><svg id="edges"></svg></div></div>
+<div id="brand" class="glass"><b id="pname"></b><select id="proj" aria-label="Project" hidden></select><small id="phint"></small></div>
+<div id="zoom" class="glass"><button data-z="1.25">+</button><button data-z="0.8">−</button><button data-z="0" title="Vai al livello corrente">◎</button></div>
+<nav id="nav" class="glass"></nav>
+<aside id="side" class="glass"></aside>
+
+<script src="config.js"></script>
+<script>
+// Cloud mode: login, projects from the database, a private page for the client. On only when map/config.js is filled in.
+async function bootCloud() {
+  const say = html => document.body.insertAdjacentHTML('beforeend', `<div id="gate" class="glass" style="position:fixed;inset:0;margin:auto;width:320px;height:max-content;padding:24px;display:flex;flex-direction:column;gap:10px;z-index:9">${html}</div>`);
+  await new Promise((ok, ko) => document.head.append(Object.assign(document.createElement('script'), { src: 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2', onload: ok, onerror: ko })));
+  const sb = supabase.createClient(CLOUD.url, CLOUD.key);
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) {
+    say('<b>Skilltree</b><input id="le" type="email" placeholder="Email" autocomplete="username"><input id="lp" type="password" placeholder="Password" autocomplete="current-password"><button id="lb" style="background:#ff8a3d;color:#1a0d02;font-weight:600;border-radius:9px;padding:10px">Sign in</button><small id="lm" style="color:#85858b"></small>');
+    const go = async () => { const { error } = await sb.auth.signInWithPassword({ email: document.querySelector('#le').value, password: document.querySelector('#lp').value }); error ? document.querySelector('#lm').textContent = 'Wrong email or password.' : location.reload(); };
+    document.querySelector('#lb').onclick = go; document.querySelector('#lp').onkeydown = e => { if (e.key === 'Enter') go(); };
+    for (const i of document.querySelectorAll('#gate input')) i.style.cssText = 'background:#1b1b1d;border:1px solid #2b2b2e;border-radius:9px;padding:10px 12px;color:#ededed;font:inherit';
+    return;
+  }
+  const out = () => sb.auth.signOut().then(() => location.reload());
+  const { data: list } = await sb.from('skilltree_projects').select('id,slug,name').order('name');
+  if (!list?.length) { say('<b>No project visible.</b><small style="color:#85858b">Either this user is not in skilltree_admins, or no project has been pushed yet (node tools/push.js &lt;project&gt;).</small><button id="lo">Sign out</button>'); document.querySelector('#lo').onclick = out; return; }
+  const want = new URLSearchParams(location.search).get('p'), cur = list.find(x => x.slug === want) || list[0];
+  const { data: row } = await sb.from('skilltree_projects').select('*').eq('id', cur.id).single();
+  window.PROJECT = row.slug;
+  // Nothing about the project is in the published files: it all comes from the database, after login.
+  window.ROADMAP = { ...row.roadmap, name: row.name, start: row.start_date, client: row.requests.items };
+  window.CL = { sb, id: row.id };
+  const sel = document.querySelector('#proj');
+  if (list.length > 1) { sel.hidden = false; for (const x of list) sel.add(new Option(x.name, x.slug, false, x.slug === row.slug)); sel.onchange = () => location.search = '?p=' + sel.value; }
+  // The token sits after the #, so it never reaches server logs.
+  const link = new URL('c/#' + row.client_token, location.href).href;
+  document.querySelector('#brand').insertAdjacentHTML('beforeend', '<span class="bb"><a id="bopen" target="_blank" rel="noreferrer">Client page</a><button id="bcopy">Copy client link</button><button id="bout">Sign out</button></span>');
+  document.querySelector('#bopen').href = link;
+  document.querySelector('#bcopy').onclick = e => navigator.clipboard.writeText(link).then(() => { e.target.textContent = 'Copied'; setTimeout(() => e.target.textContent = 'Copy client link', 1500); });
+  document.querySelector('#bout').onclick = out;
+  start();
+}
+
+// Local mode: loads the chosen project (?p=name) from projects/<name>/*.js, then starts the map.
+async function boot() {
+  if (window.CLOUD?.url && window.CLOUD?.key) return bootCloud();
+  const list = await (await fetch('/api/projects')).json();
+  if (!list.length) return document.body.insertAdjacentHTML('beforeend', '<p style="position:fixed;inset:0;display:grid;place-items:center;color:#85858b">No project yet. Ask Claude: "use the skilltree skill on this contract".</p>');
+  const want = new URLSearchParams(location.search).get('p'), cur = list.find(x => x.name === want) || list[0];
+  window.PROJECT = cur.name;
+  for (const f of cur.files) await new Promise((ok, ko) => document.head.append(Object.assign(document.createElement('script'), { src: `/projects/${cur.name}/${f}`, onload: ok, onerror: ko })));
+  const sel = document.querySelector('#proj');
+  if (list.length > 1) { sel.hidden = false; for (const x of list) sel.add(new Option(x.name, x.name, false, x.name === cur.name)); sel.onchange = () => location.search = '?p=' + sel.value; }
+  start();
+}
+</script>
+<script>
+function start() {
+const R = ROADMAP, KEY = 'skilltree-' + PROJECT, EN = R.lang === 'en', tr = (it, en) => EN ? en : it, REF = R.referente || tr('il cliente', 'the client'), LOC = EN ? 'en-GB' : 'it-IT', WEEK = 6048e5, NS = 'http://www.w3.org/2000/svg';
+// Avanzamento (done, rel, got, week) in mappa/stato.json: lo scrive server.js a ogni clic e lo scrive Claude mentre lavora.
+// La pagina lo rilegge ogni 2,5 secondi, quindi i pallini si accendono da soli. In localStorage restano solo le preferenze di vista.
+const S = Object.assign({ tab:'now' }, JSON.parse(localStorage.getItem(KEY) || '{}'), { done:{}, rel:{}, got:{}, week:undefined });
+const $ = s => document.querySelector(s);
+
+/* ---------- geometria: dorsale orizzontale, funzioni sopra e sotto, task in catena ---------- */
+const COL = 390, FY = 140, TY = 58, TD = 38, HUB = 300;
+let X = 0;
+for (const l of R.levels) {
+  l.x = X;
+  l.nodes.forEach((n, k) => {
+    n.l = l; n.x = X + HUB + (k >> 1) * COL; n.s = k % 2 ? 1 : -1; n.y = n.s * FY;
+    // ponytail: id task = nodo + posizione. Aggiungi task in fondo alla lista, non in mezzo, o le spunte slittano.
+    n.ts = n.tasks.map((t, i) => ({ t, n, id: n.id + '#' + i, x: n.x, y: n.s * (FY + TY + i * TD) }));
+  });
+  l.x2 = X + HUB + ((l.nodes.length - 1) >> 1) * COL;
+  X = l.x2 + COL + 160;
+}
+const nodes = R.levels.flatMap(l => l.nodes), tasks = nodes.flatMap(n => n.ts);
+const dn = n => n.ts.filter(t => S.done[t.id]).length;
+const pl = l => l.nodes.reduce((s, n) => s + dn(n), 0) / l.nodes.reduce((s, n) => s + n.ts.length, 0);
+const autoWeek = R.start ? Math.max(0, Math.floor((Date.now() - new Date(R.start)) / WEEK) + 1) : 0;
+const week = () => S.week ?? autoWeek;
+const day = (w, end) => new Date(+new Date(R.start) + (w - 1) * WEEK + (end ? 4 * 864e5 : 0)).toLocaleDateString(LOC, { day:'numeric', month:'short' });
+const span = ([a, b]) => a === 0 ? tr('Pre-avvio', 'Before kickoff') : (a === b ? `${tr('Sett.', 'Wk')} ${a}` : `${tr('Sett.', 'Wk')} ${a}–${b}`) + (R.start ? ` · ${day(a)} – ${day(b, 1)}` : '');
+const curLevel = () => { const w = week(); return R.levels.find(l => pl(l) < 1 && w <= l.w[1]) || R.levels.find(l => pl(l) < 1) || R.levels.at(-1); };
+
+/* ---------- costruzione (una volta) ---------- */
+const world = $('#world'), svg = $('#edges'), upd = [];
+function edge(x1, y1, x2, y2, lit) {
+  const e = document.createElementNS(NS, 'line');
+  for (const [k, v] of Object.entries({ x1, y1, x2, y2 })) e.setAttribute(k, v);
+  svg.append(e); upd.push(() => e.classList.toggle('lit', !!lit()));
+}
+function el(cls, x, y, html, data) {
+  const d = document.createElement('div');
+  d.className = cls; d.style.left = x + 'px'; d.style.top = y + 'px'; d.innerHTML = html;
+  Object.assign(d.dataset, data); world.append(d); return d;
+}
+R.levels.forEach((l, i) => {
+  const prev = R.levels[i - 1];
+  if (prev) edge(prev.x2, 0, l.x, 0, () => pl(prev) === 1);
+  edge(l.x, 0, l.x2, 0, () => pl(l) > 0);
+  const h = el('hub', l.x, 0, `<b></b><div class="hl"><em>${l.fase} · ${span(l.w)}</em><strong>${l.t}</strong></div>`, { lvl: l.id });
+  upd.push(() => {
+    const p = pl(l); h.style.setProperty('--p', p * 100 + '%'); h.firstChild.textContent = Math.round(p * 100) + '%';
+    h.className = 'hub' + (p === 1 ? ' done' : p ? ' on' : '') + (l === curLevel() ? ' now' : '');
+  });
+  for (const n of l.nodes) {
+    edge(n.x, 0, n.x, n.y, () => dn(n) > 0);
+    const f = el('f', n.x, n.y, `<i><u></u></i><span><code>${n.id}</code>${n.t}</span>`, { f: n.id });
+    upd.push(() => {
+      const d = dn(n); f.querySelector('u').textContent = d + '/' + n.ts.length;
+      f.className = 'f' + (n.gate ? ' gate' : '') + (d === n.ts.length ? ' done' : d ? ' on' : '') + (S.rel[n.id] ? ' rel' : '') + (S.sel === n.id ? ' sel' : '');
+    });
+    n.ts.forEach((t, j) => {
+      const p = j ? n.ts[j - 1] : n;
+      edge(p.x, p.y, t.x, t.y, () => S.done[t.id]);
+      t.el = el('t', t.x, t.y, `<i></i><span>${t.t}</span>`, { t: t.id });
+      upd.push(() => t.el.classList.toggle('done', !!S.done[t.id]));
+    });
+  }
+});
+
+/* ---------- camera ---------- */
+const V = { x: 0, y: 0, k: 1 }, vp = $('#vp');
+function cam(fly) {
+  V.k = Math.min(2, Math.max(.12, V.k));
+  world.classList.toggle('fly', !!fly); world.classList.toggle('far', V.k < .55);
+  world.style.transform = `translate(${V.x}px,${V.y}px) scale(${V.k})`;
+  vp.style.backgroundSize = `${28 * V.k}px ${28 * V.k}px`; vp.style.backgroundPosition = `${V.x}px ${V.y}px`;
+}
+const midX = () => (innerWidth - 404) / 2;
+function flyTo(x, y, k = V.k) { V.k = k; V.x = midX() - x * k; V.y = innerHeight / 2 - y * k; cam(true); }
+function zoomAt(cx, cy, f) { const k = Math.min(2, Math.max(.12, V.k * f)), wx = (cx - V.x) / V.k, wy = (cy - V.y) / V.k; V.k = k; V.x = cx - wx * k; V.y = cy - wy * k; }
+// Livello largo: parte dal suo hub invece che dal centro, così si vede da dove comincia.
+const flyLevel = l => { const k = Math.max(.4, Math.min(.85, (innerWidth - 440) / (l.x2 - l.x + 700))); flyTo(l.x + Math.min((l.x2 - l.x) / 2 + 80, midX() / k - 160), 0, k); };
+const flyNode = n => flyTo(n.x + 120, n.y + n.s * n.ts.length * TD / 2, 1);
+
+let drag = null, moved = false;
+vp.addEventListener('pointerdown', e => { drag = { x: e.clientX - V.x, y: e.clientY - V.y, sx: e.clientX, sy: e.clientY }; moved = false; });
+addEventListener('pointermove', e => {
+  if (!drag) return;
+  if (!moved && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 5) return;
+  moved = true; vp.classList.add('drag'); V.x = e.clientX - drag.x; V.y = e.clientY - drag.y; cam();
+});
+addEventListener('pointerup', () => { drag = null; vp.classList.remove('drag'); });
+vp.addEventListener('wheel', e => {
+  e.preventDefault();
+  if (e.ctrlKey || e.metaKey) zoomAt(e.clientX, e.clientY, Math.exp(-e.deltaY * .01)); // pizzico o ctrl+rotella
+  else { V.x -= e.deltaX; V.y -= e.deltaY; }
+  cam();
+}, { passive: false });
+$('#zoom').onclick = e => { const z = +e.target.dataset.z; if (z) { zoomAt(midX(), innerHeight / 2, z); cam(true); } else flyLevel(curLevel()); };
+
+/* ---------- stato ---------- */
+function refresh() { for (const u of upd) u(); side(); nav(); }
+function save() { localStorage.setItem(KEY, JSON.stringify({ tab: S.tab, sel: S.sel })); refresh(); }
+// Saving one change. Local mode: the small server writes projects/<name>/state.json. Cloud mode: one atomic database call.
+const CL = window.CL, esc = x => String(x).replace(/[&<>"']/g, c => '&#' + c.charCodeAt(0) + ';');
+let U = {}; // cloud mode: files and answers sent by the client, by request id
+const post = (k, id, v) => (CL
+  ? (k === 'week' ? CL.sb.rpc('skilltree_set_week', { p_project: CL.id, p_week: v }) : CL.sb.rpc('skilltree_set_state', { p_project: CL.id, p_key: k, p_id: id, p_on: v })).then(({ error }) => { if (error) throw error; })
+  : fetch('/api/state?p=' + PROJECT, { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ k, id, v }) }).then(r => { if (!r.ok) throw 0; })
+).catch(() => alert(tr('Stato non salvato.', 'State not saved.') + (CL ? '' : ' node map/server.js')));
+function pop(id) {
+  const t = tasks.find(t => t.id === id); if (!t) return;
+  t.el.classList.add('pop'); t.el.addEventListener('animationend', () => t.el.classList.remove('pop'), { once: true });
+}
+function flip(k, id) { const v = !S[k][id]; v ? S[k][id] = 1 : delete S[k][id]; post(k, id, v); refresh(); if (v && k === 'done') pop(id); }
+const toggle = id => flip('done', id);
+let last = '', live = false;
+async function pull() {
+  try {
+    // Reading the state. The map re-reads it every few seconds, so dots lit by a script light up by themselves.
+    let txt, d;
+    if (CL) {
+      const [{ data: p }, { data: up }] = await Promise.all([
+        CL.sb.from('skilltree_projects').select('state').eq('id', CL.id).single(),
+        CL.sb.from('skilltree_uploads').select('request_id,name,path,note').eq('project_id', CL.id).order('id'),
+      ]);
+      if (!p) return;
+      d = p.state; txt = JSON.stringify([d, up]);
+      U = {}; for (const u of up || []) (U[u.request_id] ??= []).push(u);
+    } else { txt = await (await fetch(`/projects/${PROJECT}/state.json`, { cache:'no-store' })).text(); d = JSON.parse(txt); }
+    if (txt === last) return; last = txt;
+    const fresh = Object.keys(d.done || {}).filter(id => !S.done[id]);
+    Object.assign(S, { done: d.done || {}, rel: d.rel || {}, got: d.got || {}, week: d.week });
+    refresh(); if (live) fresh.forEach(pop);
+  } catch {}
+}
+world.addEventListener('click', e => {
+  if (moved) return;
+  const t = e.target.closest('[data-t]'), f = e.target.closest('[data-f]'), h = e.target.closest('[data-lvl]');
+  if (t) toggle(t.dataset.t);
+  else if (f) { S.sel = f.dataset.f; S.tab = 'now'; save(); }
+  else if (h) flyLevel(R.levels.find(l => l.id === h.dataset.lvl));
+});
+
+/* ---------- barra livelli ---------- */
+function nav() {
+  const c = curLevel();
+  $('#nav').innerHTML = R.levels.map(l => `<button data-lvl="${l.id}" class="${l === c ? 'now' : ''}"><b>${l.fase}</b>${l.t.split(/[,:(]/)[0]}<i style="width:${pl(l) * 100}%"></i></button>`).join('');
+}
+$('#nav').onclick = e => { const b = e.target.closest('[data-lvl]'); if (b) flyLevel(R.levels.find(l => l.id === b.dataset.lvl)); };
+
+/* ---------- pannello ---------- */
+const row = t => `<label class="row ${S.done[t.id] ? 'd' : ''}"><input type="checkbox" data-task="${t.id}" ${S.done[t.id] ? 'checked' : ''}><span>${t.t}</span></label>`;
+function featCard(n, late, full) {
+  const d = dn(n), open = n.ts.filter(t => !S.done[t.id]), show = full ? n.ts : open.slice(0, 4);
+  return `<div class="card ${late ? 'late' : ''} ${full ? 'selc' : ''}">
+    <header><button class="ttl" data-go="${n.id}">${n.t}</button>${late ? `<span class="chip late">${tr('in ritardo', 'late')}</span>` : ''}<small>${d}/${n.ts.length}</small>${full ? '<button class="x" data-x>×</button>' : ''}</header>
+    ${full ? `<div class="meta">${n.l.fase} · ${span(n.l.w)}${n.req ? ' · ' + tr('Rif. contratto ', 'Contract ref. ') + n.req : ''}</div>${n.note ? `<div class="note">${n.note}</div>` : ''}` : ''}
+    <div class="mini"><i style="width:${d / n.ts.length * 100}%"></i></div>
+    ${show.map(row).join('')}
+    ${!full && open.length > 4 ? `<div class="more">+ ${open.length - 4} ${tr('altri', 'more')}</div>` : ''}
+    ${full && !n.gate ? `<label class="row rel"><input type="checkbox" data-rel="${n.id}" ${S.rel[n.id] ? 'checked' : ''}><span>${tr('Consegnato al cliente', 'Delivered to the client')}</span></label>` : ''}
+  </div>`;
+}
+function side() {
+  const w = week(), done = tasks.filter(t => S.done[t.id]).length, p = done / tasks.length;
+  const act = R.levels.filter(l => pl(l) < 1 && w >= l.w[0]).flatMap(l => l.nodes.filter(n => dn(n) < n.ts.length).map(n => [n, w > l.w[1]]));
+  // Exchanges with the client contact: out = lo mando io, altrimenti lo aspetto da lui. Il report del venerdì è una voce per settimana.
+  const all = R.send.concat(w >= 1 && w <= 20 ? [{ id: 'rep' + w, w, t: tr(`Report della settimana ${w} al cliente`, `Week ${w} report to the client`) }] : [])
+    .map(c => ({ ...c, out: 1 })).concat(R.client).sort((a, b) => a.w - b.w);
+  const pend = all.filter(c => !S.got[c.id]), due = pend.filter(c => c.w <= w + 1), lateAsk = due.filter(c => c.w < w).length, dueAsk = due.length;
+  const sec = (title, list) => list.length ? `<div class="grp">${title}</div>` + list.map(ask).join('') : '';
+  const sel = nodes.find(n => n.id === S.sel);
+  const chip = c => S.got[c.id] ? `<span class="chip">${tr('fatto', 'done')}</span>` : c.w < w ? `<span class="chip late">${tr('scaduta · sett.', 'overdue · wk')} ${c.w}</span>` : c.w <= w + 1 ? `<span class="chip due">${c.w ? tr('entro sett. ', 'by wk ') + c.w : tr('prima dell\'avvio', 'before kickoff')}</span>` : `<span class="chip">${tr('sett.', 'wk')} ${c.w}</span>`;
+  const ask = c => `<label class="card ask ${S.got[c.id] ? 'got' : ''}"><input type="checkbox" data-got="${c.id}" ${S.got[c.id] ? 'checked' : ''}><b class="dir ${c.out ? 'out' : ''}" title="${c.out ? tr('Lo mando io', 'I send it') : tr('Lo aspetto da ', 'Waiting on ') + REF}">${c.out ? '↑' : '↓'}</b><span>${c.t}</span>${chip(c)}</label>` + (U[c.id] || []).map(u => u.path ? `<button class="up" data-dl="${esc(u.path)}">↓ ${esc(u.name)}</button>` : `<div class="upn">${esc(u.note)}</div>`).join('');
+  const body = {
+    now: (due.length ? sec(tr('Con ', 'With ') + REF + tr(', adesso', ', now'), due.slice(0, 6)) + (due.length > 6 ? `<div class="more">+ ${due.length - 6} ${tr('altri nella scheda', 'more in the tab')} ${REF}</div>` : '') + `<div class="grp">${tr('Da fare', 'To do')}</div>` : '') + (sel ? featCard(sel, false, true) + '<div class="grp">In corso questa settimana</div>' : '') +
+      (act.filter(([n]) => n !== sel).map(([n, late]) => featCard(n, late)).join('') || `<div class="empty">${tr('Niente in sospeso per questa settimana.<br>Vai avanti con + o scegli un nodo sulla mappa.', 'Nothing pending this week.<br>Move forward with + or pick a node on the map.')}</div>`),
+    ask: sec(tr('Devo mandare a ', 'I owe ') + REF, pend.filter(c => c.out)) + sec(REF + tr(' deve mandarmi', ' owes me'), pend.filter(c => !c.out)) + sec(tr('Fatto', 'Done'), all.filter(c => S.got[c.id])),
+    rit: R.rituals.map(([a, b]) => `<div class="card rit"><b>${a}</b><span>${b}</span></div>`).join(''),
+  };
+  const y = $('#side .body')?.scrollTop;
+  $('#side').innerHTML = `
+    <div class="top"><div class="ring" style="--p:${p * 100}%">${Math.round(p * 100)}%</div><div class="info">
+      <div class="wk"><button data-wk="-1">−</button><span>${w ? tr('Settimana ', 'Week ') + w : tr('Pre-avvio', 'Before kickoff')}</span><button data-wk="1">+</button></div>
+      <div class="stats"><b>${done}</b> ${tr('di', 'of')} ${tasks.length} task · <b>${nodes.filter(n => S.rel[n.id]).length}</b> ${tr('nodi consegnati', 'nodes delivered')}</div></div></div>
+    <div class="tabs">
+      <button data-tab="now" class="${S.tab === 'now' ? 'on' : ''}">${tr('Adesso', 'Now')}<sup>${act.length}</sup></button>
+      <button data-tab="ask" class="${S.tab === 'ask' ? 'on' : ''}">${REF}<sup class="${lateAsk ? 'hot' : ''}">${dueAsk}</sup></button>
+      <button data-tab="rit" class="${S.tab === 'rit' ? 'on' : ''}">${tr('Ritmo', 'Rhythm')}</button></div>
+    <div class="body">${body[S.tab] || body.now}</div>
+    <div class="foot">${CL ? tr('Avanzamento salvato nel database', 'Progress saved in the database') : tr('Avanzamento salvato in', 'Progress saved in') + ' projects/' + PROJECT + '/state.json'}</div>`;
+  if (y) $('#side .body').scrollTop = y;
+}
+$('#side').addEventListener('click', e => {
+  const d = e.target.closest('button')?.dataset; if (!d) return;
+  if (d.dl) { const w = window.open('', '_blank'); return CL.sb.storage.from('skilltree').createSignedUrl(d.dl, 120).then(({ data }) => data ? w.location = data.signedUrl : w.close()); }
+  if (d.wk) { S.week = Math.max(0, week() + +d.wk); post('week', null, S.week); refresh(); }
+  else if (d.tab) { S.tab = d.tab; save(); }
+  else if ('x' in d) { delete S.sel; save(); }
+  else if (d.go) { S.sel = d.go; save(); flyNode(nodes.find(n => n.id === d.go)); }
+});
+$('#side').addEventListener('change', e => {
+  const d = e.target.dataset;
+  if (d.task) toggle(d.task); else if (d.rel) flip('rel', d.rel); else if (d.got) flip('got', d.got);
+});
+
+// Controllo dati: id unici, ogni richiesta punta a un livello che esiste.
+const ids = [...nodes, ...R.client, ...R.send, ...R.levels].map(x => x.id);
+console.assert(new Set(ids).size === ids.length, 'id duplicati in roadmap.js');
+console.assert(R.client.every(c => R.levels.some(l => l.id === c.per)), 'richiesta cliente senza livello');
+pull().then(() => { document.querySelector('#pname').textContent = R.name || PROJECT; document.querySelector('#phint').textContent = tr('trascina per muoverti, pizzica per lo zoom', 'drag to move, pinch to zoom'); document.documentElement.lang = EN ? 'en' : 'it'; document.title = (R.name || PROJECT) + ' · Skilltree';
+refresh(); flyLevel(curLevel()); requestAnimationFrame(() => world.classList.remove('fly')); live = true; setInterval(pull, 2500); });
+}
+boot();
+</script>
+</html>
