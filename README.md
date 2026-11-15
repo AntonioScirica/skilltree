@@ -2,7 +2,7 @@
 
 Give Claude a contract. Get a game-style skill tree of everything you have to build, where each task lights up when it is done.
 
-[![skilltree](docs/skilltree.gif)](docs/skilltree-reel.mp4)
+<a href="docs/skilltree-reel.mp4"><img src="docs/skilltree.gif" alt="skilltree: a contract becomes a skill tree, tasks light up, the client gets a page" width="320"></a>
 
 *[Leggi in italiano](README.it.md)*
 
