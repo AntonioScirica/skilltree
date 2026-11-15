@@ -2,7 +2,7 @@
 
 Dai a Claude un contratto. Ottieni un albero delle abilità stile videogioco con tutto quello che devi costruire, dove ogni task si accende quando è fatto.
 
-<a href="docs/skilltree-reel.mp4"><img src="docs/skilltree.gif" alt="skilltree: a contract becomes a skill tree, tasks light up, the client gets a page" width="320"></a>
+<a href="docs/skilltree.mp4"><img src="docs/skilltree.gif" alt="skilltree: a contract becomes a skill tree, tasks light up, the client gets a page" width="100%"></a>
 
 *[Read in English](README.md)*
 
